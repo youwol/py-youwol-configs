@@ -70,7 +70,7 @@ async def empty_buckets_minio():
 async def reset(ctx: Context):
     env = await ctx.get('env', YouwolEnvironment)
     env.reset_cache()
-    await empty_buckets_minio()
+    # await empty_buckets_minio()
     parent_folder = env.pathsBook.config.parent
     shutil.rmtree(parent_folder / "databases", ignore_errors=True)
     shutil.rmtree(parent_folder / "projects", ignore_errors=True)
