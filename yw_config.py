@@ -1,4 +1,4 @@
-import os
+import asyncio
 from pathlib import Path
 from typing import Optional
 
@@ -11,6 +11,9 @@ from youwol.configuration.models_config import Events, Redirection, CdnOverride,
 from youwol.configuration.models_k8s import OpenIdConnect, Docker, DockerRepo
 from youwol.environment.forward_declaration import YouwolEnvironment
 import youwol_files_backend as files_backend
+from youwol.routers.custom_commands.models import Command
+from youwol.utils.utils_low_level import execute_shell_cmd
+from youwol_utils import reload_youwol_environment
 from youwol_utils.clients.file_system import LocalFileSystem
 from youwol_utils.context import Context
 from youwol.main_args import MainArguments
@@ -22,12 +25,13 @@ open_source_path = Path.home() / 'Projects' / 'youwol-open-source'
 platform_path = Path.home() / 'Projects' / 'platform'
 secrets_folder: Path = platform_path / "secrets" / "gc"
 from_scratch_conf_folder = open_source_path / 'py-youwol-configs' / "empty_db_config"
-npm_youwol_path = open_source_path / "npm" / "@youwol"
+npm_path = open_source_path / "npm"
+npm_youwol_path = npm_path / "@youwol"
+npm_externals_path = npm_path / "cdn-externals"
 
 
-def set_py_youwol_env_var():
-    os.environ["PY_YOUWOL_SRC"] = str(open_source_path / 'python' / 'py-youwol')
-    print(f"Env. variable PY_YOUWOL_SRC set: {os.environ['PY_YOUWOL_SRC']}")
+async def on_load(ctx: Context):
+    await ctx.info("Hello YouWol")
 
 
 class MyDispatch(AbstractDispatch):
@@ -38,20 +42,56 @@ class MyDispatch(AbstractDispatch):
         if incoming_request.url.path.startswith(
                 "/api/assets-gateway/assets/UUhsdmRYZHZiQzl3YkdGMFptOXliUzFsYzNObGJuUnBZV3h6"
         ):
-            print("Hey this is my Custom dispatch")
+            await context.info(text="MyDispatch", labels=["MyDispatch"])
         return None
 
     def __str__(self):
         return "My custom dispatch!"
 
 
-async def get_files_backend_config(ctx: Context):
+async def get_files_backend_router(ctx: Context):
     env = await ctx.get('env', YouwolEnvironment)
     root_path = env.pathsBook.local_storage / files_backend.Constants.namespace / 'youwol-users'
     config = files_backend.Configuration(
         file_system=LocalFileSystem(root_path=root_path)
     )
     return files_backend.get_router(config)
+
+
+async def start_backend(body, ctx: Context):
+    env = await ctx.get('env', YouwolEnvironment)
+    path = Path.home() / "Projects" / "youwol-open-source" / "python" / body['name'] / 'src' / 'main.py'
+    from subprocess import Popen
+    Popen(["python", path, body['conf'], str(env.httpPort)])
+
+    async def refresh_env():
+        await asyncio.sleep(1)
+        await reload_youwol_environment(port=env.httpPort)
+    asyncio.create_task(refresh_env())
+    return {}
+
+
+async def git_db_backup(body, ctx: Context):
+    env = await ctx.get('env', YouwolEnvironment)
+    repo_path = env.pathsBook.databases
+
+    return_code, outputs = await execute_shell_cmd(
+        cmd=f"(cd {repo_path} && git config --get remote.origin.url)",
+        context=ctx
+    )
+    await ctx.info(f"Repo url: {outputs[0]}")
+    message = body["message"] if "message" in body else "Backup"
+
+    return_code, outputs = await execute_shell_cmd(
+        cmd=f'(cd {repo_path} && git add -A && git commit -m "{message}" && git push)',
+        context=ctx
+    )
+    if return_code != 0:
+        raise RuntimeError("Error while pushing in repo")
+    return {
+        "status": "backup synchronized",
+        "commitMessage": message
+    }
 
 
 class ConfigurationFactory(IConfigurationFactory):
@@ -82,22 +122,16 @@ class ConfigurationFactory(IConfigurationFactory):
         "@youwol/todo-app-js": 4000,
     }
 
-    def __init__(self):
-        # some initialization
-        pass
-
     async def get(self,  main_args: MainArguments) -> Configuration:
-
+        externals = [f for f in npm_externals_path.iterdir() if f.is_dir()]
         return Configuration(
             dataDir=Path.home() / 'Projects' / 'drive-shared',
             cacheDir=open_source_path / 'py-youwol-configs' / "youwol_config" / "youwol_system",
             projectsDirs=[
                 npm_youwol_path,
                 npm_youwol_path / 'sample-apps',
-                npm_youwol_path / '..' / 'cdn-externals' / 'grapes',
-                npm_youwol_path / '..' / 'cdn-externals' / 'pyodide',
-                npm_youwol_path / '..' / 'cdn-externals' / 'typescript',
-                npm_youwol_path / '..' / 'cdn-externals' / 'codemirror',
+                *externals,
+                npm_youwol_path / 'installers',
                 npm_youwol_path / 'flux',
                 npm_youwol_path / 'flux' / 'flux-view',
                 npm_youwol_path / 'grapes-plugins',
@@ -106,7 +140,7 @@ class ConfigurationFactory(IConfigurationFactory):
             ],
             portsBook={**self.portsBookFronts, **self.portsBookBacks},
             routers=[
-                FastApiRouter(base_path='/api/files-backend', router=get_files_backend_config)
+                FastApiRouter(base_path='/api/files-backend', router=get_files_backend_router)
             ],
             dispatches=[
                 *[Redirection(from_url_path=f'/api/{name}', to_url=f'http://localhost:{port}')
@@ -135,6 +169,16 @@ class ConfigurationFactory(IConfigurationFactory):
                 )
             ),
             events=Events(
-                onLoad=lambda config, ctx: set_py_youwol_env_var()
-            )
+                onLoad=lambda config, ctx: on_load(ctx)
+            ),
+            customCommands=[
+                Command(
+                    name="start-backend",
+                    do_post=lambda body, ctx: start_backend(body, ctx)
+                ),
+                Command(
+                    name="git-db-backup",
+                    do_post=lambda body, ctx: git_db_backup(body, ctx)
+                )
+            ]
         )
