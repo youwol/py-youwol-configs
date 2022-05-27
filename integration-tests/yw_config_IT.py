@@ -10,13 +10,14 @@ from starlette.responses import Response
 
 import youwol_files_backend as files_backend
 from youwol.configuration.config_from_module import IConfigurationFactory, Configuration
-from youwol.configuration.models_config import Redirection
+from youwol.configuration.models_config import Redirection, CdnOverride
 from youwol.environment.clients import RemoteClients
 from youwol.environment.youwol_environment import YouwolEnvironment
 from youwol.middlewares.models_dispatch import AbstractDispatch
 from youwol.routers.custom_commands.models import Command
 
 from youwol.utils.utils_low_level import execute_shell_cmd, sed_inplace
+from youwol_utils import decode_id
 from youwol_utils.clients.file_system import LocalFileSystem
 from youwol_utils.context import Context
 from youwol.main_args import MainArguments
@@ -85,11 +86,21 @@ async def create_remote_folder(body, ctx):
     await assets_gtw.create_folder(parent_folder_id=body['parentFolderId'], body=body)
 
 
+async def test_command_post(body, context: Context):
+
+    await context.info(text="test message", data={"body": body})
+    return body["returnObject"]
+
+
 class BrotliDecompress(AbstractDispatch):
 
     async def apply(self, incoming_request: Request, call_next: RequestResponseEndpoint, context: Context):
 
-        match_cdn, _ = url_match(incoming_request, "GET:/api/assets-gateway/raw/package/**")
+        match_cdn, params = url_match(incoming_request, "GET:/api/assets-gateway/raw/package/*/**")
+        env = await context.get('env', YouwolEnvironment)
+        if match_cdn and len(params) > 0 and decode_id(params[0]) in env.portsBook:
+            return None
+
         match_files, _ = url_match(incoming_request, "GET:/api/assets-gateway/files-backend/files/*")
         if match_cdn or match_files:
             response = await call_next(incoming_request)
@@ -123,17 +134,10 @@ async def get_files_backend_config(ctx: Context):
 
 
 class ConfigurationFactory(IConfigurationFactory):
-    portsBook = {
-        "stories-backend": 3001,
-        "cdn-backend": 3002,
-        "assets-gateway": 3003,
-        "cdn-apps-server": 3004,
-        "tree-db-backend": 3005,
-        "assets-backend": 3006,
-        "flux-backend": 3007,
-        "cdn-sessions-storage": 3008,
-        "files-backend": 3009
+    portsBookFronts = {
+        "@youwol/developer-portal": 3000
     }
+    portsBookBacks = {}
 
     async def get(self, main_args: MainArguments) -> Configuration:
         return Configuration(
@@ -142,17 +146,16 @@ class ConfigurationFactory(IConfigurationFactory):
             cacheDir=Path(__file__).parent / 'youwol_system',
             projectsDirs=[Path(__file__).parent / 'projects'],
             dispatches=[
-                Redirection(
-                     from_url_path='/api/files-backend',
-                     to_url=f"http://localhost:{self.portsBook['files-backend']}"
-                 ),
-                # Redirection(from_url_path='/api/assets-gateway', to_url='http://localhost:2458'),
-                BrotliDecompress()
+                BrotliDecompress(),
+                *[Redirection(from_url_path=f'/api/{name}', to_url=f'http://localhost:{port}')
+                  for name, port in self.portsBookBacks.items()],
+                *[CdnOverride(packageName=name, port=port)
+                  for name, port in self.portsBookFronts.items()],
             ],
             routers=[
                 # FastApiRouter(base_path='/api/files-backend', router=get_files_backend_config)
             ],
-            portsBook=self.portsBook,
+            portsBook={**self.portsBookFronts, **self.portsBookBacks},
             customCommands=[
                 Command(
                     name="reset",
@@ -172,7 +175,7 @@ class ConfigurationFactory(IConfigurationFactory):
                 ),
                 Command(
                     name="test-cmd-post",
-                    do_post=lambda body, ctx: body["returnObject"]
+                    do_post=lambda body, ctx: test_command_post(body, ctx)
                 ),
                 Command(
                     name="test-cmd-put",
@@ -182,7 +185,7 @@ class ConfigurationFactory(IConfigurationFactory):
                     name="test-cmd-delete",
                     do_delete=lambda ctx: {"status": "deleted"}
                 )
-            ]
+            ],
         ).extending_profile(
             name='profile-1',
             conf=Configuration()
