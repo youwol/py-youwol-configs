@@ -118,6 +118,7 @@ class ConfigurationFactory(IConfigurationFactory):
         "@youwol/network": 3007,
         "@youwol/explorer": 3008,
         "@youwol/workspace-explorer": 3009,
+        "@youwol/cdn-explorer": 3010,
         "@youwol/flux-runner": 3011,
         "@youwol/todo-app-js": 4000,
     }
