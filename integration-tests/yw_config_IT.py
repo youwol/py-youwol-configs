@@ -151,7 +151,8 @@ async def get_files_backend_config(ctx: Context):
 
 class ConfigurationFactory(IConfigurationFactory):
     portsBookFronts = {
-        "@youwol/developer-portal": 3000
+        "@youwol/developer-portal": 3000,
+        "@youwol/stories": 3001,
     }
     portsBookBacks = {
         "cdn-backend": 4002,
