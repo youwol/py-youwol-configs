@@ -3,7 +3,6 @@ import os
 import shutil
 from pathlib import Path
 import brotli
-from minio import Minio
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
@@ -55,6 +54,13 @@ async def purge_downloads(ctx: Context):
 
 
 async def empty_buckets_minio():
+    from minio import Minio
+    """
+    to start minio:
+    from environment/minio:
+    sudo chown -R greinisch ./data && sudo chmod u+rxw ./data
+    ./minio server ./data
+    """
     minio = Minio(
         endpoint="127.0.0.1:9000",
         access_key="minioadmin",
@@ -63,15 +69,25 @@ async def empty_buckets_minio():
     )
     buckets = minio.list_buckets()
     for bucket in buckets:
-        objects = minio.list_objects(bucket_name=bucket.name)
+        objects = minio.list_objects(bucket_name=bucket.name, recursive=True)
         for obj in objects:
             minio.remove_object(bucket_name=bucket.name, object_name=obj.object_name)
+
+
+minio_used = False
+
+
+async def use_minio():
+    global minio_used
+    minio_used = True
 
 
 async def reset(ctx: Context):
     env = await ctx.get('env', YouwolEnvironment)
     env.reset_cache()
-    # await empty_buckets_minio()
+    if minio_used:
+        await empty_buckets_minio()
+
     parent_folder = env.pathsBook.config.parent
     shutil.rmtree(parent_folder / "databases", ignore_errors=True)
     shutil.rmtree(parent_folder / "projects", ignore_errors=True)
@@ -137,7 +153,9 @@ class ConfigurationFactory(IConfigurationFactory):
     portsBookFronts = {
         "@youwol/developer-portal": 3000
     }
-    portsBookBacks = {}
+    portsBookBacks = {
+        "cdn-backend": 4002,
+    }
 
     async def get(self, main_args: MainArguments) -> Configuration:
         return Configuration(
@@ -157,6 +175,10 @@ class ConfigurationFactory(IConfigurationFactory):
             ],
             portsBook={**self.portsBookFronts, **self.portsBookBacks},
             customCommands=[
+                Command(
+                    name="use-minio",
+                    do_get=lambda ctx: use_minio()
+                ),
                 Command(
                     name="reset",
                     do_get=lambda ctx: reset(ctx)
