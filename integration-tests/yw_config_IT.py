@@ -160,6 +160,8 @@ class ConfigurationFactory(IConfigurationFactory):
 
     async def get(self, main_args: MainArguments) -> Configuration:
         return Configuration(
+            openIdHost="gc.auth.youwol.com",
+            platformHost="gc.platform.youwol.com",
             httpPort=2001,
             dataDir=Path(__file__).parent / 'databases',
             cacheDir=Path(__file__).parent / 'youwol_system',

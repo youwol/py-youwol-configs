@@ -126,6 +126,8 @@ class ConfigurationFactory(IConfigurationFactory):
     async def get(self,  main_args: MainArguments) -> Configuration:
         externals = [f for f in npm_externals_path.iterdir() if f.is_dir()]
         return Configuration(
+            openIdHost="gc.auth.youwol.com",
+            platformHost="gc.platform.youwol.com",
             dataDir=Path.home() / 'Projects' / 'drive-shared',
             cacheDir=open_source_path / 'py-youwol-configs' / "youwol_config" / "youwol_system",
             projectsDirs=[
