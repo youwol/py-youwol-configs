@@ -136,7 +136,7 @@ class ConfigurationFactory(IConfigurationFactory):
                 *externals,
                 npm_youwol_path / 'installers',
                 npm_youwol_path / 'flux',
-                npm_youwol_path / 'flux' / 'flux-view',
+                npm_youwol_path / 'flux-view',
                 npm_youwol_path / 'grapes-plugins',
                 open_source_path / "python",
                 open_source_path / "python" / "py-youwol"
