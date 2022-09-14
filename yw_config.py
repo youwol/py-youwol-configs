@@ -7,13 +7,14 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from youwol.configuration.config_from_module import IConfigurationFactory, Configuration
-from youwol.configuration.models_config import Events, Redirection, CdnOverride, K8sCluster
-from youwol.configuration.models_k8s import OpenIdConnect, Docker, DockerRepo
+from youwol.configuration.models_config import Events, Redirection, CdnOverride, K8sCluster, JwtSource
+from youwol.configuration.models_k8s import Docker, DockerRepo
 from youwol.environment.forward_declaration import YouwolEnvironment
 import youwol_files_backend as files_backend
 from youwol.routers.custom_commands.models import Command
 from youwol.utils.utils_low_level import execute_shell_cmd
-from youwol_utils import reload_youwol_environment
+from youwol_utils import reload_youwol_environment, parse_json
+from youwol_utils.admin import clean_visitors, CleanVisitorsBody
 from youwol_utils.clients.file_system import LocalFileSystem
 from youwol_utils.context import Context
 from youwol.main_args import MainArguments
@@ -21,11 +22,10 @@ from youwol.main_args import MainArguments
 from youwol.middlewares.models_dispatch import AbstractDispatch
 from youwol_utils.servers.fast_api import FastApiRouter
 
-open_source_path = Path.home() / 'Projects' / 'youwol-open-source'
-platform_path = Path.home() / 'Projects' / 'platform'
-secrets_folder: Path = platform_path / "secrets" / "gc"
-from_scratch_conf_folder = open_source_path / 'py-youwol-configs' / "empty_db_config"
-npm_path = open_source_path / "npm"
+youwol_root = Path.home() / 'Projects' / 'youwol-open-source'
+secrets_folder: Path = youwol_root / "secrets"
+from_scratch_conf_folder = youwol_root / 'py-youwol-configs' / "empty_db_config"
+npm_path = youwol_root / "npm"
 npm_youwol_path = npm_path / "@youwol"
 npm_externals_path = npm_path / "cdn-externals"
 
@@ -94,6 +94,17 @@ async def git_db_backup(body, ctx: Context):
     }
 
 
+async def cmd_clean_visitors(context: Context):
+    async with context.start("Execute clean visitors command") as ctx:  # type: Context
+        env: YouwolEnvironment = await ctx.get('env', YouwolEnvironment)
+        conf = parse_json(env.pathsBook.secrets)['cleanVisitorsOidcConfig']
+        await ctx.info(text="oidc config", data=conf)
+        await clean_visitors(body=CleanVisitorsBody(**conf), context=ctx)
+        return {
+            "status": "OK"
+        }
+
+
 class ConfigurationFactory(IConfigurationFactory):
 
     portsBookBacks = {
@@ -120,26 +131,29 @@ class ConfigurationFactory(IConfigurationFactory):
         "@youwol/workspace-explorer": 3009,
         "@youwol/cdn-explorer": 3010,
         "@youwol/flux-runner": 3011,
+        "@youwol/python-playground": 3012,
         "@youwol/todo-app-js": 4000,
     }
 
     async def get(self,  main_args: MainArguments) -> Configuration:
         externals = [f for f in npm_externals_path.iterdir() if f.is_dir()]
         return Configuration(
-            openIdHost="gc.auth.youwol.com",
-            platformHost="gc.platform.youwol.com",
+            openIdHost="platform.youwol.com",
+            platformHost="platform.youwol.com",
+            jwtSource=JwtSource.COOKIE,
             dataDir=Path.home() / 'Projects' / 'drive-shared',
-            cacheDir=open_source_path / 'py-youwol-configs' / "youwol_config" / "youwol_system",
+            cacheDir=youwol_root / 'py-youwol-configs' / "youwol_config" / "youwol_system",
             projectsDirs=[
                 npm_youwol_path,
                 npm_youwol_path / 'sample-apps',
+                npm_youwol_path / 'cdn-client' / 'src' / 'tests' / '.packages-test',
                 *externals,
                 npm_youwol_path / 'installers',
                 npm_youwol_path / 'flux',
                 npm_youwol_path / 'flux-view',
                 npm_youwol_path / 'grapes-plugins',
-                open_source_path / "python",
-                open_source_path / "python" / "py-youwol"
+                youwol_root / "python",
+                youwol_root / "python" / "py-youwol"
             ],
             portsBook={**self.portsBookFronts, **self.portsBookBacks},
             routers=[
@@ -154,13 +168,8 @@ class ConfigurationFactory(IConfigurationFactory):
             ],
             k8sCluster=K8sCluster(
                 configFile=Path.home() / '.kube' / 'config',
-                contextName="gke_thematic-grove-252706_europe-west1_gc-tricot",
+                contextName="gke_thematic-grove-252706_europe-west1_prod",
                 proxyPort=8001,
-                host="gc.platform.youwol.com",
-                openIdConnect=OpenIdConnect(
-                    host="gc.auth.youwol.com",
-                    authSecret=secrets_folder / "keycloak" / "youwol-auth.yaml"
-                ),
                 docker=Docker(
                     repositories=[
                         DockerRepo(
@@ -182,6 +191,10 @@ class ConfigurationFactory(IConfigurationFactory):
                 Command(
                     name="git-db-backup",
                     do_post=lambda body, ctx: git_db_backup(body, ctx)
+                ),
+                Command(
+                    name="clean-visitors (prod)",
+                    do_post=lambda _body, ctx: cmd_clean_visitors(ctx)
                 )
             ]
         )
