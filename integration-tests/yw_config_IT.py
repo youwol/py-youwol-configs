@@ -9,7 +9,7 @@ from starlette.responses import Response
 
 import youwol_files_backend as files_backend
 from youwol.configuration.config_from_module import IConfigurationFactory, Configuration
-from youwol.configuration.models_config import Redirection, CdnOverride
+from youwol.configuration.models_config import Redirection, CdnOverride, JwtSource
 from youwol.environment.clients import RemoteClients
 from youwol.environment.youwol_environment import YouwolEnvironment
 from youwol.middlewares.models_dispatch import AbstractDispatch
@@ -151,17 +151,18 @@ async def get_files_backend_config(ctx: Context):
 
 class ConfigurationFactory(IConfigurationFactory):
     portsBookFronts = {
-        "@youwol/developer-portal": 3000,
-        "@youwol/stories": 3001,
+        #"@youwol/developer-portal": 3000,
+        #"@youwol/stories": 3001,
     }
     portsBookBacks = {
-        "cdn-backend": 4002,
+        #"cdn-backend": 4002,
     }
 
     async def get(self, main_args: MainArguments) -> Configuration:
         return Configuration(
-            openIdHost="gc.auth.youwol.com",
-            platformHost="gc.platform.youwol.com",
+            openIdHost="platform.youwol.com",
+            platformHost="platform.youwol.com",
+            jwtSource=JwtSource.CONFIG,
             httpPort=2001,
             dataDir=Path(__file__).parent / 'databases',
             cacheDir=Path(__file__).parent / 'youwol_system',
