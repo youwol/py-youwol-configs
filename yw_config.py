@@ -11,6 +11,7 @@ from youwol.configuration.models_config import Events, Redirection, CdnOverride,
 from youwol.configuration.models_k8s import Docker, DockerRepo
 from youwol.environment.forward_declaration import YouwolEnvironment
 import youwol_files_backend as files_backend
+from youwol.pipelines.pipeline_typescript_weback_npm import lib_ts_webpack_template, app_ts_webpack_template
 from youwol.routers.custom_commands.models import Command
 from youwol.utils.utils_low_level import execute_shell_cmd
 from youwol_utils import reload_youwol_environment, parse_json
@@ -145,6 +146,7 @@ class ConfigurationFactory(IConfigurationFactory):
             cacheDir=youwol_root / 'py-youwol-configs' / "youwol_config" / "youwol_system",
             projectsDirs=[
                 npm_youwol_path,
+                npm_youwol_path / 'auto-generated',
                 npm_youwol_path / 'sample-apps',
                 npm_youwol_path / 'cdn-client' / 'src' / 'tests' / '.packages-test',
                 *externals,
@@ -154,6 +156,10 @@ class ConfigurationFactory(IConfigurationFactory):
                 npm_youwol_path / 'grapes-plugins',
                 youwol_root / "python",
                 youwol_root / "python" / "py-youwol"
+            ],
+            projectTemplates=[
+                lib_ts_webpack_template(folder=npm_youwol_path / 'auto-generated'),
+                app_ts_webpack_template(folder=npm_youwol_path / 'auto-generated')
             ],
             portsBook={**self.portsBookFronts, **self.portsBookBacks},
             routers=[
