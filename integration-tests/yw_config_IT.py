@@ -41,7 +41,9 @@ async def clone_project(git_url: str, new_project_name: str, ctx: Context):
 
 async def purge_downloads(ctx: Context):
 
-    assets_gtw = await RemoteClients.get_assets_gateway_client(ctx)
+    env = await ctx.get('env', YouwolEnvironment)
+    host = env.selectedRemote
+    assets_gtw = await RemoteClients.get_assets_gateway_client(remote_host=host, context=ctx)
     env: YouwolEnvironment = await ctx.get('env', YouwolEnvironment)
     default_drive = await env.get_default_drive(context=ctx)
     resp = await assets_gtw.get_tree_folder_children(default_drive.downloadFolderId)
@@ -98,7 +100,10 @@ async def reset(ctx: Context):
 
 
 async def create_remote_folder(body, ctx):
-    assets_gtw = await RemoteClients.get_assets_gateway_client(ctx)
+
+    env = await ctx.get('env', YouwolEnvironment)
+    host = env.selectedRemote
+    assets_gtw = await RemoteClients.get_assets_gateway_client(remote_host=host, context=ctx)
     await assets_gtw.create_folder(parent_folder_id=body['parentFolderId'], body=body)
 
 
