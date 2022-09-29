@@ -7,11 +7,14 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from youwol.configuration.config_from_module import IConfigurationFactory, Configuration
-from youwol.configuration.models_config import Events, Redirection, CdnOverride, K8sCluster, JwtSource
-from youwol.configuration.models_k8s import Docker, DockerRepo
+from youwol.configuration.models_config import Events, Redirection, CdnOverride, JwtSource, PipelinesSourceInfo
+
 from youwol.environment.forward_declaration import YouwolEnvironment
 import youwol_files_backend as files_backend
-from youwol.pipelines.pipeline_typescript_weback_npm import lib_ts_webpack_template, app_ts_webpack_template
+from youwol.pipelines import HelmChartsInstall, K8sClusterTarget, DockerImagesPush, DockerRepo, PackagesPublishYwCdn, \
+    YwPlatformTarget
+from youwol.pipelines.pipeline_typescript_weback_npm import lib_ts_webpack_template, app_ts_webpack_template, \
+    PackagesPublishNpm, PublicNpmRepo
 from youwol.routers.custom_commands.models import Command
 from youwol.utils.utils_low_level import execute_shell_cmd
 from youwol_utils import reload_youwol_environment, parse_json
@@ -157,10 +160,6 @@ class ConfigurationFactory(IConfigurationFactory):
                 youwol_root / "python",
                 youwol_root / "python" / "py-youwol"
             ],
-            projectTemplates=[
-                lib_ts_webpack_template(folder=npm_youwol_path / 'auto-generated'),
-                app_ts_webpack_template(folder=npm_youwol_path / 'auto-generated')
-            ],
             portsBook={**self.portsBookFronts, **self.portsBookBacks},
             routers=[
                 FastApiRouter(base_path='/api/files-backend', router=get_files_backend_router)
@@ -172,19 +171,53 @@ class ConfigurationFactory(IConfigurationFactory):
                   for name, port in self.portsBookFronts.items()],
                 MyDispatch()
             ],
-            k8sCluster=K8sCluster(
-                configFile=Path.home() / '.kube' / 'config',
-                contextName="gke_thematic-grove-252706_europe-west1_prod",
-                proxyPort=8001,
-                docker=Docker(
-                    repositories=[
-                        DockerRepo(
-                            name="gitlab-docker-repo",
-                            pullSecret=secrets_folder / "gitlab" / "gitlab-docker.yaml",
-                            imageUrlBuilder=lambda project, ctx: f"registry.gitlab.com/youwol/platform/{project.name}"
-                        )
-                    ]
-                )
+            pipelinesSourceInfo=PipelinesSourceInfo(
+                projectTemplates=[
+                    lib_ts_webpack_template(folder=npm_youwol_path / 'auto-generated'),
+                    app_ts_webpack_template(folder=npm_youwol_path / 'auto-generated')
+                ],
+                uploadTargets=[
+                    HelmChartsInstall(
+                        k8sConfigFile=Path.home() / '.kube' / 'config',
+                        targets=[
+                            K8sClusterTarget(
+                                name='dev',
+                                context="context-dev"
+                            ),
+                            K8sClusterTarget(
+                                name='prod',
+                                context="context-prod"
+                            )
+                        ]
+                    ),
+                    DockerImagesPush(
+                        targets=[
+                            DockerRepo(
+                                name="gitlab-docker-repo",
+                                host="registry.gitlab.com/youwol/platform"
+                            )
+                        ]
+                    ),
+                    PackagesPublishYwCdn(
+                        targets=[
+                            YwPlatformTarget(
+                                name="dev",
+                                host="platform.dev.youwol.com"
+                            ),
+                            YwPlatformTarget(
+                                name="prod",
+                                host="platform.youwol.com"
+                            ),
+                        ]
+                    ),
+                    PackagesPublishNpm(
+                        targets=[
+                            PublicNpmRepo(
+                                name="public"
+                            )
+                        ]
+                    )
+                ]
             ),
             events=Events(
                 onLoad=lambda config, ctx: on_load(ctx)
