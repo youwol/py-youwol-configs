@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import shutil
 from pathlib import Path
@@ -113,6 +114,44 @@ async def test_command_post(body, context: Context):
     return body["returnObject"]
 
 
+async def create_test_data_remote(context: Context):
+    async with context.start("create_new_story_remote") as ctx:
+        env = await context.get('env', YouwolEnvironment)
+        host = env.selectedRemote
+        await ctx.info(f"selected Host for creation: {host}")
+        gtw = await RemoteClients.get_assets_gateway_client(remote_host=host, context=ctx)
+
+        resp_stories = await gtw.get_stories_backend_router().create_story(body={
+            "storyId": "504039f7-a51f-403d-9672-577b846fdbd8",
+            "title": "New story (remote test data in http-clients)"
+        }, params=[('folder-id', 'private_51c42384-3582-494f-8c56-7405b01646ad_default-drive_home')])
+
+        resp_flux = await gtw.get_flux_backend_router().create_project(body={
+            "projectId": "2d5cafa9-f903-4fa7-b343-b49dfba20023",
+            "description": 'a flux project dedicated to test in http-clients',
+            "name": "New flux-project (remote test data in http-clients)"
+        }, params=[('folder-id', 'private_51c42384-3582-494f-8c56-7405b01646ad_default-drive_home')])
+
+        content = json.dumps({'description': 'a file uploaded in remote env for test purposes (http-clients)'})
+        form = {
+            'file': str.encode(content),
+            'content_type': 'application/json',
+            'file_id': "f72290f2-90bc-4192-80ca-20f983a1213d",
+            'file_name': "Uploaded file (remote test data in http-clients)"
+        }
+        resp_data = await gtw.get_files_backend_router().upload(
+            data=form,
+            params=[('folder-id', 'private_51c42384-3582-494f-8c56-7405b01646ad_default-drive_home')]
+        )
+        resp = {
+            "respStories": resp_stories,
+            "respFlux": resp_flux,
+            "respData": resp_data
+        }
+        await ctx.info(f"Story successfully created", data=resp)
+        return resp
+
+
 class BrotliDecompress(AbstractDispatch):
 
     async def apply(self, incoming_request: Request, call_next: RequestResponseEndpoint, context: Context):
@@ -215,6 +254,10 @@ class ConfigurationFactory(IConfigurationFactory):
                 Command(
                     name="test-cmd-delete",
                     do_delete=lambda ctx: {"status": "deleted"}
+                ),
+                Command(
+                    name="create-test-data-remote",
+                    do_get=lambda ctx: create_test_data_remote(ctx)
                 )
             ],
         ).extending_profile(
