@@ -25,14 +25,14 @@ from youwol.main_args import MainArguments
 
 from youwol.middlewares.models_dispatch import AbstractDispatch
 from youwol_utils.servers.fast_api import FastApiRouter
+from youwol_utils.utils_paths import FileListing, matching_files
 
 youwol_root = Path.home() / 'Projects' / 'youwol-open-source'
 secrets_folder: Path = youwol_root / "secrets"
-from_scratch_conf_folder = youwol_root / 'py-youwol-configs' / "empty_db_config"
 npm_path = youwol_root / "npm"
 npm_youwol_path = npm_path / "@youwol"
 npm_externals_path = npm_path / "cdn-externals"
-
+cache_dir = youwol_root / 'py-yw-configs' / 'py-youwol-configs' / "youwol_config" / "youwol_system"
 
 async def on_load(ctx: Context):
     await ctx.info("Hello YouWol")
@@ -109,6 +109,14 @@ async def cmd_clean_visitors(context: Context):
         }
 
 
+def auto_detect_projects():
+    file_listing = FileListing(
+        include=["**/yw_pipeline.py"],
+        ignore=["**/node_modules", "**/.template", "**/.git", "**/dist", str(cache_dir / '**'), '**/py-youwol'])
+    yw_pipelines = matching_files(youwol_root, file_listing)
+    return [p.parent.parent for p in yw_pipelines]
+
+
 class ConfigurationFactory(IConfigurationFactory):
 
     portsBookBacks = {
@@ -140,26 +148,17 @@ class ConfigurationFactory(IConfigurationFactory):
     }
 
     async def get(self,  main_args: MainArguments) -> Configuration:
-        externals = [f for f in npm_externals_path.iterdir() if f.is_dir()]
+
+        projects = auto_detect_projects()
+        print(f"Auto detection of {len(projects)} projects")
+
         return Configuration(
             openIdHost="platform.youwol.com",
             platformHost="platform.youwol.com",
             jwtSource=JwtSource.COOKIE,
             dataDir=Path.home() / 'Projects' / 'drive-shared',
-            cacheDir=youwol_root / 'py-youwol-configs' / "youwol_config" / "youwol_system",
-            projectsDirs=[
-                npm_youwol_path,
-                npm_youwol_path / 'auto-generated',
-                npm_youwol_path / 'sample-apps',
-                npm_youwol_path / 'cdn-client' / 'src' / 'tests' / '.packages-test',
-                *externals,
-                npm_youwol_path / 'installers',
-                npm_youwol_path / 'flux',
-                npm_youwol_path / 'flux-view',
-                npm_youwol_path / 'grapes-plugins',
-                youwol_root / "python",
-                youwol_root / "python" / "py-youwol"
-            ],
+            cacheDir=cache_dir,
+            projectsDirs=projects,
             portsBook={**self.portsBookFronts, **self.portsBookBacks},
             routers=[
                 FastApiRouter(base_path='/api/files-backend', router=get_files_backend_router)
