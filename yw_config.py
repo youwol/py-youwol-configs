@@ -2,21 +2,24 @@ import asyncio
 from pathlib import Path
 from typing import Optional
 
+import aiohttp
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
 
-from youwol.configuration.config_from_module import IConfigurationFactory, Configuration
-from youwol.configuration.models_config import Events, Redirection, CdnOverride, JwtSource, PipelinesSourceInfo
+from youwol.environment.config_from_module import IConfigurationFactory, Configuration
+from youwol.configuration.models_config import Events, Redirection, CdnOverride, JwtSource, Projects
 
-from youwol.environment.forward_declaration import YouwolEnvironment
 import youwol_files_backend as files_backend
+from youwol.environment.projects_loader import ProjectLoader
+from youwol.environment.utils import auto_detect_projects
+from youwol.environment.youwol_environment import YouwolEnvironment
 from youwol.pipelines import HelmChartsInstall, K8sClusterTarget, DockerImagesPush, DockerRepo, PackagesPublishYwCdn, \
     YwPlatformTarget
 from youwol.pipelines.pipeline_typescript_weback_npm import lib_ts_webpack_template, app_ts_webpack_template, \
     PackagesPublishNpm, PublicNpmRepo
 from youwol.routers.custom_commands.models import Command
-from youwol.utils.utils_low_level import execute_shell_cmd
+from youwol_utils import execute_shell_cmd
 from youwol_utils import reload_youwol_environment, parse_json
 from youwol_utils.admin import clean_visitors, CleanVisitorsBody
 from youwol_utils.clients.file_system import LocalFileSystem
@@ -25,7 +28,6 @@ from youwol.main_args import MainArguments
 
 from youwol.middlewares.models_dispatch import AbstractDispatch
 from youwol_utils.servers.fast_api import FastApiRouter
-from youwol_utils.utils_paths import FileListing, matching_files
 
 youwol_root = Path.home() / 'Projects' / 'youwol-open-source'
 secrets_folder: Path = youwol_root / "secrets"
@@ -88,7 +90,7 @@ async def publish_pyodide_packages(context: Context):
 
 
 async def get_files_backend_router(ctx: Context):
-    env = await ctx.get('env', YouwolEnvironment)
+    env: YouwolEnvironment = await ctx.get('env', YouwolEnvironment)
     root_path = env.pathsBook.local_storage / files_backend.Constants.namespace / 'youwol-users'
     config = files_backend.Configuration(
         file_system=LocalFileSystem(root_path=root_path)
@@ -143,14 +145,6 @@ async def cmd_clean_visitors(context: Context):
         }
 
 
-def auto_detect_projects():
-    file_listing = FileListing(
-        include=["**/yw_pipeline.py"],
-        ignore=["**/node_modules", "**/.template", "**/.git", "**/dist", str(cache_dir / '**'), '**/py-youwol'])
-    yw_pipelines = matching_files(youwol_root, file_listing)
-    return [p.parent.parent for p in yw_pipelines]
-
-
 class ConfigurationFactory(IConfigurationFactory):
 
     portsBookBacks = {
@@ -183,29 +177,19 @@ class ConfigurationFactory(IConfigurationFactory):
 
     async def get(self,  main_args: MainArguments) -> Configuration:
 
-        projects = auto_detect_projects()
-        print(f"Auto detection of {len(projects)} projects")
-
         return Configuration(
             openIdHost="platform.youwol.com",
             platformHost="platform.youwol.com",
-            jwtSource=JwtSource.COOKIE,
-            dataDir=Path.home() / 'Projects' / 'drive-shared',
+            jwtSource=JwtSource.CONFIG,
+            dataDir=youwol_root / 'greinisch-youwol-db',
             cacheDir=cache_dir,
-            projectsDirs=projects,
-            portsBook={**self.portsBookFronts, **self.portsBookBacks},
-            routers=[
-                FastApiRouter(base_path='/api/files-backend', router=get_files_backend_router)
-            ],
-            dispatches=[
-                *[Redirection(from_url_path=f'/api/{name}', to_url=f'http://localhost:{port}')
-                  for name, port in self.portsBookBacks.items()],
-                *[CdnOverride(packageName=name, port=port)
-                  for name, port in self.portsBookFronts.items()],
-                MyDispatch()
-            ],
-            pipelinesSourceInfo=PipelinesSourceInfo(
-                projectTemplates=[
+            projects=Projects(
+                finder=lambda env, _ctx: auto_detect_projects(
+                    env=env,
+                    root_folder=youwol_root,
+                    ignore=["**/dist", "**/py-youwol", "**/@youwol/cdn-client/src/tests"]
+                ),
+                templates=[
                     lib_ts_webpack_template(folder=npm_youwol_path / 'auto-generated'),
                     app_ts_webpack_template(folder=npm_youwol_path / 'auto-generated')
                 ],
@@ -252,6 +236,17 @@ class ConfigurationFactory(IConfigurationFactory):
                     )
                 ]
             ),
+            portsBook={**self.portsBookFronts, **self.portsBookBacks},
+            routers=[
+                FastApiRouter(base_path='/api/files-backend', router=get_files_backend_router)
+            ],
+            dispatches=[
+                *[Redirection(from_url_path=f'/api/{name}', to_url=f'http://localhost:{port}')
+                  for name, port in self.portsBookBacks.items()],
+                *[CdnOverride(packageName=name, port=port)
+                  for name, port in self.portsBookFronts.items()],
+                MyDispatch()
+            ],
             events=Events(
                 onLoad=lambda config, ctx: on_load(ctx)
             ),
