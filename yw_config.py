@@ -53,6 +53,40 @@ class MyDispatch(AbstractDispatch):
         return "My custom dispatch!"
 
 
+async def publish_pyodide_packages(context: Context):
+    session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False))
+
+    env: YouwolEnvironment = await context.get('env', YouwolEnvironment)
+    def get_url_run(action: str):
+        return f"http://localhost:{env.httpPort}/admin/projects/{project.id}/flows/prod/steps/{action}/run"
+
+    async with context.start(action="Publish pyodide packages") as ctx:
+        projects = await ProjectLoader.get_projects(env=env, context=ctx)
+        pyodide_projects = [p for p in projects if "@pyodide" in p.name]
+        await ctx.info(text="pyodide projects retrieved", data={"projects": pyodide_projects})
+
+        errors = []
+        for project in pyodide_projects:
+            async with ctx.start(action=f"Publish pyodide package {project.name}") as ctx_project:
+
+                auth_token = await env.get_auth_token(context=ctx_project, remote_host=env.selectedRemote)
+                headers = {"Authorization": f"Bearer {auth_token}"}
+                async with await session.post(url=get_url_run('build'), headers=headers) as resp:
+                    if resp.status == 200:
+                        await ctx_project.info(text="Build successful")
+                    else:
+                        errors.append(['build', project.name])
+                        continue
+
+                async with await session.post(url=get_url_run('cdn-local'), headers=headers) as resp:
+                    if resp.status == 200:
+                        await ctx_project.info(text="publish local successful")
+                    else:
+                        errors.append(['build', project.name])
+        if errors:
+            await context.error(text="Errors occurred", data={"errors": errors})
+
+
 async def get_files_backend_router(ctx: Context):
     env = await ctx.get('env', YouwolEnvironment)
     root_path = env.pathsBook.local_storage / files_backend.Constants.namespace / 'youwol-users'
@@ -233,6 +267,10 @@ class ConfigurationFactory(IConfigurationFactory):
                 Command(
                     name="clean-visitors (prod)",
                     do_post=lambda _body, ctx: cmd_clean_visitors(ctx)
+                ),
+                Command(
+                    name="publish pyodide packages",
+                    do_post=lambda _body, ctx: publish_pyodide_packages(ctx)
                 )
             ]
         )
