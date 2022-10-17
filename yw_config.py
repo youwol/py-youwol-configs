@@ -73,6 +73,9 @@ async def publish_pyodide_packages(context: Context):
 
                 auth_token = await env.get_auth_token(context=ctx_project, remote_host=env.selectedRemote)
                 headers = {"Authorization": f"Bearer {auth_token}"}
+
+                print(f'Build {project.name}')
+
                 async with await session.post(url=get_url_run('build'), headers=headers) as resp:
                     if resp.status == 200:
                         await ctx_project.info(text="Build successful")
@@ -80,13 +83,25 @@ async def publish_pyodide_packages(context: Context):
                         errors.append(['build', project.name])
                         continue
 
+                print(f'Publish in local cdn {project.name}')
                 async with await session.post(url=get_url_run('cdn-local'), headers=headers) as resp:
                     if resp.status == 200:
                         await ctx_project.info(text="publish local successful")
                     else:
                         errors.append(['build', project.name])
+
+                print(f'Publish in prod {project.name}')
+                async with await session.post(url=get_url_run('cdn_prod'), headers=headers) as resp:
+                    if resp.status == 200:
+                        await ctx_project.info(text="publish local successful")
+                        print(f'Publish in prod {project.name} succeeded')
+                    else:
+                        errors.append(['build', project.name])
+
         if errors:
             await context.error(text="Errors occurred", data={"errors": errors})
+
+    await session.close()
 
 
 async def get_files_backend_router(ctx: Context):
