@@ -1,6 +1,6 @@
 # Couple of examples of py-youwol configuration
 
-This repo gather typical use of py-youwol configuration, 
+This repo gather typical examples of py-youwol configuration, 
 they are located at the root of the repo.
 
 *  [empty_config.py](empty_config.py): illustrates empty (initial) configuration. 
