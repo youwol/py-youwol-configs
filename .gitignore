@@ -1,4 +1,6 @@
 .idea
+.databases
+.system
 youwol_config
 remotes-info.json
 secrets.json
