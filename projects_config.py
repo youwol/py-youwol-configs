@@ -41,7 +41,7 @@ pipeline_ts.set_environment(environment=pipeline_ts.Environment(
 
 Configuration(
     projects=Projects(
-        finder="root_folder",
+        finder=Path.home() / 'Projects',
         templates=[
             pipeline_ts.lib_ts_webpack_template(folder=projects_folder / 'auto-generated'),
             pipeline_ts.app_ts_webpack_template(folder=projects_folder / 'auto-generated')
