@@ -6,7 +6,7 @@ import youwol.pipelines.pipeline_typescript_weback_npm as pipeline_ts
 from youwol.pipelines import CdnTarget
 from youwol.pipelines.pipeline_typescript_weback_npm import PublicNpmRepo
 
-projects_folder = Path("~/Projects")
+projects_folder = Path.home() / "Projects"
 
 company_youwol = get_standard_youwol_env(
     env_id="foo",
@@ -41,7 +41,7 @@ pipeline_ts.set_environment(environment=pipeline_ts.Environment(
 
 Configuration(
     projects=Projects(
-        finder=Path.home() / 'Projects',
+        finder=projects_folder,
         templates=[
             pipeline_ts.lib_ts_webpack_template(folder=projects_folder / 'auto-generated'),
             pipeline_ts.app_ts_webpack_template(folder=projects_folder / 'auto-generated')
