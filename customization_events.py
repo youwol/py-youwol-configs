@@ -1,4 +1,4 @@
-from youwol.environment import Configuration, Customization, Events
+from youwol.app.environment import Configuration, Customization, Events
 
 Configuration(
     customization=Customization(

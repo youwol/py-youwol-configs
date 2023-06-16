@@ -1,7 +1,15 @@
 from pathlib import Path
 
-from youwol.environment import Configuration, System, CloudEnvironments, LocalEnvironment, Connection, CloudEnvironment, \
-    get_standard_auth_provider, BrowserAuth
+from youwol.app.environment import (
+    Configuration,
+    System,
+    CloudEnvironments,
+    LocalEnvironment,
+    Connection,
+    CloudEnvironment,
+    get_standard_auth_provider,
+    BrowserAuth,
+)
 
 browser_auth = BrowserAuth(authId='browser')
 

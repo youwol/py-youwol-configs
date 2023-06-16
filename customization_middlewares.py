@@ -2,10 +2,16 @@ from pathlib import Path
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.requests import Request
 
-from youwol.environment import Configuration, Customization, CdnSwitch, CustomMiddleware, FlowSwitcherMiddleware, \
-    RedirectSwitch
+from youwol.app.environment import (
+    Configuration,
+    Customization,
+    CdnSwitch,
+    CustomMiddleware,
+    FlowSwitcherMiddleware,
+    RedirectSwitch,
+)
 
-from youwol_utils.context import Context, Label
+from youwol.utils.context import Context, Label
 
 
 youwol_root = Path.home() / 'Projects' / 'youwol-open-source'

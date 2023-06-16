@@ -1,6 +1,12 @@
 from pathlib import Path
 
-from youwol.environment import Configuration, Projects, DirectAuth, get_standard_youwol_env, BrowserAuth
+from youwol.app.environment import (
+    Configuration,
+    Projects,
+    DirectAuth,
+    get_standard_youwol_env,
+    BrowserAuth,
+)
 
 import youwol.pipelines.pipeline_typescript_weback_npm as pipeline_ts
 from youwol.pipelines import CdnTarget

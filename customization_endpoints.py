@@ -1,7 +1,12 @@
 from pathlib import Path
 
-from youwol.environment import Configuration, Customization, Command, CustomEndPoints
-from youwol_utils.servers.fast_api import FastApiRouter
+from youwol.app.environment import (
+    Configuration,
+    Customization,
+    Command,
+    CustomEndPoints,
+)
+from youwol.utils.servers.fast_api import FastApiRouter
 
 import custom_backend
 

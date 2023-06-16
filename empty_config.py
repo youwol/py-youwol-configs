@@ -1,3 +1,3 @@
-from youwol.environment import Configuration
+from youwol.app.environment import Configuration
 
 Configuration()

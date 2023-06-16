@@ -1,7 +1,17 @@
 from pathlib import Path
 
-from youwol.environment import Configuration, System, CloudEnvironments, LocalEnvironment, DirectAuth, BrowserAuth, \
-    CloudEnvironment, get_standard_auth_provider, Connection, get_standard_youwol_env
+from youwol.app.environment import (
+    Configuration,
+    System,
+    CloudEnvironments,
+    LocalEnvironment,
+    DirectAuth,
+    BrowserAuth,
+    CloudEnvironment,
+    get_standard_auth_provider,
+    Connection,
+    get_standard_youwol_env,
+)
 
 company_name = "foo"
 company_youwol = CloudEnvironment(

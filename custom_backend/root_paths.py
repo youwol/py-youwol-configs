@@ -3,7 +3,7 @@ import itertools
 from fastapi import APIRouter, Depends
 from starlette.requests import Request
 
-from youwol_utils.context import Context
+from youwol.utils.context import Context
 
 from .configurations import Configuration, get_configuration
 
