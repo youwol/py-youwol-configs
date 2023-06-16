@@ -1,5 +1,5 @@
 from typing import Union, Callable, Awaitable
-from youwol_files_backend import Configuration, Dependencies
+from .configurations import Configuration, Dependencies
 
 
 def get_router(
