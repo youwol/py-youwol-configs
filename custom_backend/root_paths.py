@@ -19,14 +19,11 @@ async def healthz():
 @router.get(
     "/config",
     response_model=Configuration,
-    summary="return the service's configuration"
+    summary="return the service's configuration",
 )
 async def config(
-        request: Request,
-        configuration: Configuration = Depends(get_configuration)
+    request: Request, configuration: Configuration = Depends(get_configuration)
 ):
-    async with Context.start_ep(
-            request=request
-    ) as ctx:  # type: Context
-        await ctx.info(text="Just return the configuration", data=configuration)
+    async with Context.start_ep(request=request) as ctx:  # type: Context
+        await ctx.info(text="Just return the configuration")
         return configuration
