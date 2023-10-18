@@ -32,19 +32,18 @@ from youwol.app.routers.projects import ProjectLoader
 
 from youwol.utils.context import Context, Label
 
-users = [
-    (os.getenv("USERNAME_INTEGRATION_TESTS"), os.getenv("PASSWORD_INTEGRATION_TESTS"))
-]
-
-direct_auths = [
-    DirectAuth(authId=email, userName=email, password=pwd) for email, pwd in users
-]
-
+user_name = os.getenv("USERNAME_INTEGRATION_TESTS")
 cloud_env = CloudEnvironment(
     envId="integration",
     host="platform.int.youwol.com",
     authProvider=get_standard_auth_provider("platform.int.youwol.com"),
-    authentications=direct_auths,
+    authentications=[
+        DirectAuth(
+            authId=user_name,
+            userName=user_name,
+            password=os.getenv("PASSWORD_INTEGRATION_TESTS")
+        )
+    ],
 )
 
 
@@ -99,7 +98,7 @@ class ConfigurationFactory(IConfigurationFactory):
                 cloudEnvironments=CloudEnvironments(
                     defaultConnection=Connection(
                         envId="integration",
-                        authId=direct_auths[0].authId
+                        authId=user_name
                     ),
                     environments=[cloud_env],
                 ),
