@@ -1,6 +1,7 @@
 """
 This configuration is commonly used for integration testing of npm packages along with py-youwol environment.
 It connects to the 'integration' environment of YouWol when needed.
+You need to provide as environment variables: USERNAME_INTEGRATION_TESTS & PASSWORD_INTEGRATION_TESTS
 """
 import os
 import shutil
@@ -32,11 +33,7 @@ from youwol.app.routers.projects import ProjectLoader
 from youwol.utils.context import Context, Label
 
 users = [
-    (os.getenv("USERNAME_INTEGRATION_TESTS"), os.getenv("PASSWORD_INTEGRATION_TESTS")),
-    (
-        os.getenv("USERNAME_INTEGRATION_TESTS_BIS"),
-        os.getenv("PASSWORD_INTEGRATION_TESTS_BIS"),
-    ),
+    (os.getenv("USERNAME_INTEGRATION_TESTS"), os.getenv("PASSWORD_INTEGRATION_TESTS"))
 ]
 
 direct_auths = [
