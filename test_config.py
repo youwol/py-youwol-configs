@@ -59,6 +59,10 @@ async def reset(ctx: Context):
 
 
 class BrotliDecompressMiddleware(CustomMiddleware):
+    """
+    This middleware is required because using jest and its jsDOM environment, automatic brotli decompression is
+    not done.
+    """
     async def dispatch(
             self,
             incoming_request: Request,
