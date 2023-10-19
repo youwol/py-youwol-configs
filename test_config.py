@@ -93,32 +93,30 @@ class BrotliDecompressMiddleware(CustomMiddleware):
             return resp
 
 
-class ConfigurationFactory(IConfigurationFactory):
-    async def get(self, _main_args: MainArguments) -> Configuration:
-        return Configuration(
-            system=System(
-                httpPort=2001,
-                tokensStorage=TokensStorageInMemory(),
-                cloudEnvironments=CloudEnvironments(
-                    defaultConnection=Connection(
-                        envId="integration",
-                        authId=user_name
-                    ),
-                    environments=[cloud_env],
-                ),
-                localEnvironment=LocalEnvironment(
-                    dataDir=Path(__file__).parent / "databases",
-                    cacheDir=Path(__file__).parent / "youwol_system",
-                ),
+Configuration(
+    system=System(
+        httpPort=2001,
+        tokensStorage=TokensStorageInMemory(),
+        cloudEnvironments=CloudEnvironments(
+            defaultConnection=Connection(
+                envId="integration",
+                authId=user_name
             ),
-            customization=Customization(
-                middlewares=[
-                    BrotliDecompressMiddleware(),
-                ],
-                endPoints=CustomEndPoints(
-                    commands=[
-                        Command(name="reset", do_get=reset),
-                    ]
-                ),
-            ),
-        )
+            environments=[cloud_env],
+        ),
+        localEnvironment=LocalEnvironment(
+            dataDir=Path(__file__).parent / "databases",
+            cacheDir=Path(__file__).parent / "youwol_system",
+        ),
+    ),
+    customization=Customization(
+        middlewares=[
+            BrotliDecompressMiddleware(),
+        ],
+        endPoints=CustomEndPoints(
+            commands=[
+                Command(name="reset", do_get=reset),
+            ]
+        ),
+    ),
+)
