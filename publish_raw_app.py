@@ -1,3 +1,39 @@
+
+"""
+This is about publishing a new 'raw' application in YouWol ecosystem.
+Copy/paste your project under the 'projects_root' folder referenced in this file.
+In the folder of your project, include a '.yw_pipeline' folder including a 'yw_pipeline.py' file with following content:
+```
+from youwol.app.environment import YouwolEnvironment
+from youwol.app.routers.projects import IPipelineFactory, BrowserApp, Execution, BrowserAppGraphics
+from youwol.pipelines.pipeline_raw_app import pipeline, PipelineConfig
+from youwol.utils.context import Context
+
+
+class PipelineFactory(IPipelineFactory):
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    async def get(self, _env: YouwolEnvironment, context: Context):
+        config = PipelineConfig(target=BrowserApp(
+            displayName="My application",
+            execution=Execution(
+                standalone=True
+            ),
+            graphics=BrowserAppGraphics(
+                appIcon={'class': 'far fa-laugh-beam fa-2x'},
+                fileIcon={}
+            ),
+            links=[
+                # E.g. a github link
+            ]
+        ))
+        return await pipeline(config, context)
+```
+Load (or refresh) the dev. portal application, select your project and proceed to publication.
+"""
+
 from pathlib import Path
 from youwol.app.environment import (
     Configuration,
@@ -37,34 +73,3 @@ Configuration(
         ),
     ),
 )
-
-"""
-Below is an example of the yw_pipeline.py file that need to be included in your project
------------------
-from youwol.app.environment import YouwolEnvironment
-from youwol.app.routers.projects import IPipelineFactory, BrowserApp, Execution, BrowserAppGraphics
-from youwol.pipelines.pipeline_raw_app import pipeline, PipelineConfig
-from youwol.utils.context import Context
-
-
-class PipelineFactory(IPipelineFactory):
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    async def get(self, _env: YouwolEnvironment, context: Context):
-        config = PipelineConfig(target=BrowserApp(
-            displayName="My application",
-            execution=Execution(
-                standalone=True
-            ),
-            graphics=BrowserAppGraphics(
-                appIcon={'class': 'far fa-laugh-beam fa-2x'},
-                fileIcon={}
-            ),
-            links=[
-                # E.g. a github link
-            ]
-        ))
-        return await pipeline(config, context)
-"""
